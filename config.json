@@ -1,0 +1,8 @@
+{
+    "WMS_MODULES": [
+        "./image_sample.py",
+        "#./image_nyc.py",
+        "#./image_nyc_dask.py",
+        "#./image_georef.py"],
+    "WMS_DATABASE": "/tmp/wms.sqlite3"
+}
