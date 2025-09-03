@@ -437,8 +437,7 @@ def linear_legend(pal, low='Low', high='High'):
     draw = ImageDraw.Draw(img)
     for t in [low, high]:
         # tw, _ = draw.textsize(t, font=FONT)
-        tw = int(draw.textlength(t, font=FONT)+0.5)
-        print(f'@@A {tw=}')
+        tw = int(draw.textlength(t, font=FONT)+0.5) # TODO use multiline_textbbox for int pixels?
         text_width = max(text_width, tw)
     del draw
 

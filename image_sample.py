@@ -1,7 +1,9 @@
 import flask
 import jinja2
+from werkzeug.utils import safe_join
 from io import BytesIO
 import os
+from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont
 import random
 import colorcet
@@ -20,7 +22,7 @@ from util import wms
 
 FONT = ImageFont.truetype('arial.ttf', 12)
 
-MINX, MINY, MAXX, MAXY = -160, -70, 160, 70
+MINX, MINY, MAXX, MAXY = -180, -90, 180, 90
 
 STATE_FILE = '/tmp/image_sample.txt'
 
@@ -28,13 +30,15 @@ STATE_FILE = '/tmp/image_sample.txt'
 # Blueprint start.
 ##
 BP_STATIC = './static_sample'
-BP_TEMPLATE = 'D:/Code/Python/WMS/templates_sample'
+BP_TEMPLATE = str(Path(__file__).parent / 'templates_sample')
+print(f'@SAMPLE TEMPLATE {BP_TEMPLATE=}')
 sample_bp = flask.Blueprint('sample', __name__, static_folder=BP_STATIC, template_folder=BP_TEMPLATE)
 
 # @sample_bp.route('/sample/html', defaults={'page': 'index.html'})
 @sample_bp.route('/sample/html/<page>')
 def show(page):
-    print('SHOW', page, flask.safe_join(BP_TEMPLATE, page))
+    # print('SHOW', page, flask.safe_join(BP_TEMPLATE, page))
+    print('SHOW', page, safe_join(BP_TEMPLATE, page))
     try:
         if page.lower().endswith('.html'):
             return flask.render_template(page)
@@ -101,7 +105,7 @@ def legend_inferno(path, legend):
 @wms.style('categorical')
 def legend_cat(path, legend):
     print(f'**LEGEND {path} {legend}')
-    cats = ['one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'tenzxczxcxczc']
+    cats = ['one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten_longer']
     pal = [(2, 62, 255), (255, 124, 0), (26, 201, 56), (232, 0, 11), (139, 43, 226), (159, 72, 0), (241, 76, 193), (163, 163, 163), (255, 196, 0), (0, 215, 255)]
 
     return util.categorical_legend(cats, pal)
@@ -157,8 +161,6 @@ def _make_ellipse_image(request, w, h, bbox, path, layer_name, style_name):
     color = _random_color()
     draw.ellipse([(0, 0), (w-1, h-1)], outline=color)
     del draw
-
-    img.save('D:/tmp/layer.png')
 
     return img
 

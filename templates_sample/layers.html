@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <title>Sample page</title>
+</head>
+
+<body>
+  <div>
+    <fieldset>
+      <legend>Choose your layers</legend>
+      <div>
+        <input type="checkbox" id="A" name="layer" value="A">
+        <label for="A">A</label>
+      </div>
+      <div>
+        <input type="checkbox" id="E" name="layer" value="E">
+        <label for="E">E</label>
+      </div>
+      <div>
+        <input type="checkbox" id="I" name="layer" value="I">
+        <label for="I">I</label>
+      </div>
+      <div>
+        <input type="checkbox" id="O" name="layer" value="O">
+        <label for="O">O</label>
+      </div>
+      <div>
+        <input type="checkbox" id="U" name="layer" value="U">
+        <label for="U">U</label>
+      </div>
+      <div>
+        <button id="selectAll">Select all</button>
+        <button id="selectNone">Select none</button>
+      </div>
+        </fieldset>
+
+    <fieldset>
+      <legend>Date</legend>
+      <div>
+        <input type="date" id="date0" name="date0">
+        <label for="date0">Start date</label>
+      </div>
+      <div>
+        <input type="time" id="time0" name="time0">
+        <label for="time0">Start time</label>
+      </div>
+    </fieldset>
+    <fieldset>
+      <legend>Other</legend>
+      <div>
+          <label for="text0">Some text:</label>
+          <input id="text0">
+        </div>
+        <div>
+        <label for="hour0">A number:</label>
+        <input id="hour0" type="number" min="0" max="23" step="1" value ="0"/>
+      </div>
+    </fieldset>
+  </div>
+
+  <div>
+    <button id="submit">Submit</button>
+  </div>
+
+  <div id="error" style="color:red"></div>
+
+  <script>
+    'use strict';
+
+    /*
+    Create a URL with correctly encoded parameters.
+    params is a key/value Map.
+    */
+    let buildUrl = function (url, params) {
+      let newUrl = new URL(window.location.origin + url)
+      if (params == undefined) {
+        return newUrl;
+      }
+
+      Object.keys(params).forEach(key => newUrl.searchParams.append(key, params[key]))
+      console.log('new url = %s', newUrl);
+
+      return newUrl;
+    };
+
+    let status = function (response) {
+      if(response.status >= 200 && response.status < 300) {
+        return Promise.resolve(response)
+      } else {
+        return Promise.reject(new Error(response.statusText))
+      }
+    }
+
+    let getState = function (params) {
+      var errEl = document.getElementById('error');
+      errEl.innerHTML = '';
+      let newUrl = buildUrl('/sample/layers', params);
+      fetch(newUrl)
+        .then(status)
+        .then(function (response) {
+          return response.json();
+        })
+        .then(function (json) {
+          console.log(JSON.stringify(json))
+          let enabledLayers = json.layers;
+          let layerCbs = document.querySelectorAll('input[name="layer"]');
+          for (var i = 0; i < layerCbs.length; i++) {
+            layerCbs[i].checked = enabledLayers.indexOf(layerCbs[i].value) >= 0;
+          }
+        })
+        .catch(function (err) {
+          errEl.innerHTML = err;
+        })
+    };
+
+    /*
+    Submit a layer setting from the checkboxes.
+    Use the response to set the checkboxes.
+    */
+    document.getElementById('submit').onclick = function () {
+      let layerCbs = document.querySelectorAll('input[name="layer"]');
+      var checked = '';
+      for (var i = 0; i < layerCbs.length; i++) {
+        if (layerCbs[i].checked) {
+          checked += layerCbs[i].value
+        }
+      }
+      console.log('checked=%s', checked)
+
+      let dateVal = document.getElementById('date0').value;
+      let timeVal = document.getElementById('time0').value;
+      let textVal = document.getElementById('text0').value
+      let hourVal = document.getElementById('hour0').value
+      getState({layers:checked, date:dateVal, time:timeVal, hour:hourVal, text:textVal});
+
+      // fetch(buildUrl('/sample/layers', {layers: checked}))
+      //   .then(function(response) {
+      //     return response.json();
+      //   })
+      //   .then(function(json) {
+      //     console.log(JSON.stringify(json))
+      //     let enabledLayers = json.layers;
+      //     let layerCbs = document.querySelectorAll('input[name="layer"]');
+      //     for(var i = 0; i < layerCbs.length; i++) {
+      //       layerCbs[i].checked = enabledLayers.indexOf(layerCbs[i].value)>=0;
+      //     }
+      //   })
+    };
+
+    document.getElementById('selectAll').onclick = function () {
+      let layerCbs = document.querySelectorAll('input[name="layer"]');
+      for (var i = 0; i < layerCbs.length; i++) {
+        layerCbs[i].checked = true;
+      }
+    };
+
+    document.getElementById('selectNone').onclick = function () {
+      var layerCbs = document.querySelectorAll('input[name="layer"]');
+      for (var i = 0; i < layerCbs.length; i++) {
+        layerCbs[i].checked = false;
+      }
+    };
+
+    getLayers();
+  </script>
+</body>
+
+</html>
