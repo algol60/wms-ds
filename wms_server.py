@@ -95,7 +95,6 @@ def get_root():
 def get_wms(path=''):
     """The endpoint for WMS requests."""
 
-    print(f'PATH: "{path}"')
     args = request.args
 
     try:
@@ -114,8 +113,6 @@ def get_wms(path=''):
             style_names = _get_mandatory(args, 'STYLES')
             crs = _get_mandatory(args, 'CRS')
             bbox = [float(f) for f in _get_mandatory(args, 'BBOX').split(',')]
-
-            print(f'@GET_WMS {width=} {height=} {bbox=} {crs=}')
 
             if crs=='EPSG:4326':
                 # EPSG:4326 refers to WGS 84 geographic latitude, then longitude.
