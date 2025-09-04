@@ -74,7 +74,13 @@ class Wms:
         self._layers_by_name = {}
         self._styles = {}
 
-        self.database = None
+        # Database name.
+        #
+        self.database: str = None
+
+        # Database connection.
+        #
+        self.conn = None
 
     def layer_provider(self, func):
         """Decorator for layer provider functions.
@@ -410,7 +416,7 @@ def build_exception(e):
     return text
 
 def byte_buffer(img):
-    """Save an image into a byte buffer and rturn the buffer."""
+    """Save an image into a byte buffer and return the buffer."""
 
     buf = BytesIO()
     img.save(buf, format='png')
@@ -494,14 +500,21 @@ def tuple_to_rgb(palette):
 # Database stuff.
 ##
 def get_db():
-    """Get a database connection."""
+    """Get a database connection. Not thread-safe."""
 
-    db = getattr(flask.g, '_database', None)
-    if db is None:
-        db = flask.g._database = sqlite3.connect(wms.database)
-        db.row_factory = sqlite3.Row
+    # db = getattr(flask.g, '_database', None)
+    # if db is None:
+    #     db = flask.g._database = sqlite3.connect(wms.database)
+    #     db.row_factory = sqlite3.Row
 
-    return db
+    # return db
+
+    if wms.conn is None:
+        wms.conn = sqlite3.connect(wms.database)
+        wms.conn.row_factory = sqlite3.Row
+
+    return wms.conn
+
 
 def query_db(query, args=(), one=False):
     """Query the database.

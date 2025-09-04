@@ -1,0 +1,8 @@
+[modules]
+image_sample = "./image_sample.py"
+# image_ais = "./image_ais.py"
+# image_nyc = "./image_nyc.py"
+# image_georef = "./image_georef.py"
+
+[database]
+database = "/tmp/wms.sqlite3"
