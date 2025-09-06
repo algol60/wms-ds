@@ -1,87 +1,23 @@
-import flask
-import jinja2
 from werkzeug.utils import safe_join
-from io import BytesIO
-import os
-from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont
 import random
-import colorcet
-from datashader.colors import inferno, Hot, viridis
+from datashader.colors import inferno, viridis
 
 import util
 from util import wms
 
+from litestar import Litestar, get
+from litestar.static_files import create_static_files_router
+
 # Artificial images that draw wherever the display is looking at.
 # The edge image also draws informational text.
-#
-# Requires database schema:
-#
-# CREATE TABLE sample_layers(user TEXT, enabled TEXT);
 #
 
 FONT = ImageFont.truetype('arial.ttf', 12)
 
 MINX, MINY, MAXX, MAXY = -180, -90, 180, 90
 
-STATE_FILE = '/tmp/image_sample.txt'
-
-##
-# Blueprint start.
-##
-BP_STATIC = './static_sample'
-BP_TEMPLATE = str(Path(__file__).parent / 'templates_sample')
-print(f'@SAMPLE TEMPLATE {BP_TEMPLATE=}')
-sample_bp = flask.Blueprint('sample', __name__, static_folder=BP_STATIC, template_folder=BP_TEMPLATE)
-
-# @sample_bp.route('/sample/html', defaults={'page': 'index.html'})
-@sample_bp.route('/sample/html/<page>')
-def show(page):
-    # print('SHOW', page, flask.safe_join(BP_TEMPLATE, page))
-    print('SHOW', page, safe_join(BP_TEMPLATE, page))
-    try:
-        if page.lower().endswith('.html'):
-            return flask.render_template(page)
-        else:
-            return flask.send_from_directory(BP_STATIC, page)
-    except jinja2.TemplateNotFound:
-        flask.abort(404)
-
-@sample_bp.route('/sample/layers')
-def layers():
-    """REST API for layer selection
-
-    If no 'layers' parameter, return enabled layers.
-    If 'layers' parameter, set enabled layers and return them.
-    """
-
-    date = flask.request.args.get('date')
-    time = flask.request.args.get('time')
-    hour = flask.request.args.get('hour')
-    text = flask.request.args.get('text')
-    print(f'date [{date}]; time [{time}]; hour [{hour}]; text [{text}]')
-
-    lyrs = flask.request.args.get('layers')
-    if lyrs is None:
-        row = util.query_db('SELECT enabled FROM sample_layers', [], one=True)
-        enabled = row['enabled'] if row else ''
-    else:
-        conn = util.get_db()
-        conn.execute('DELETE FROM sample_layers')
-        conn.execute('INSERT INTO sample_layers (user, enabled) VALUES (?,?)', ['', lyrs])
-        conn.commit()
-        enabled = lyrs
-
-    return flask.jsonify({'layers':enabled})
-
-def get_blueprint():
-    """Export the blueprint to the WMS server."""
-
-    return sample_bp
-
-##
-# Blueprint end.
-##
+# STATE_FILE = '/tmp/image_sample.txt'
 
 def _random_color():
     return tuple(random.randint(0, 191) for _ in range(3))
@@ -95,11 +31,11 @@ def _add_text(w, h, bbox, draw, text, fill=(0, 0, 0)):
 @wms.style('linear')
 def legend_lin(path, legend):
     print(f'**LEGEND {path} {legend}')
-#     return util.linear_legend(colorcet.fire[::2], 'Bottom', 'Top')
     return util.linear_legend(util.tuple_to_rgb(viridis)[::2], 'Bottom', 'Top')
 
 @wms.style('linear2')
 def legend_inferno(path, legend):
+    print(f'**LEGEND {path} {legend}')
     return util.linear_legend(util.tuple_to_rgb(inferno)[::2], 'Cold', 'Hot')
 
 @wms.style('categorical')
@@ -164,30 +100,40 @@ def _make_ellipse_image(request, w, h, bbox, path, layer_name, style_name):
 
     return img
 
-# @wms.layer_provider
-# def sample_layers():
-#     text_layer = util.LayerNode(name='edge_layer')
-#     color_layer = util.LayerNode(name='ellipse_layer')
+@wms.layer_provider
+def sample_layers():
+    text_layer = util.LayerNode(name='edge_layer')
+    color_layer = util.LayerNode(name='ellipse_layer')
 
-#     # layers = [text_layer, color_layer]
+    layers = util.LayerNode(
+        abstract='Provides some sample layers.',
+        title='Sample layers',
+        children=[text_layer, color_layer])
 
-#     layers = util.LayerNode(
-#         abstract='Provides some sample layers.',
-#         title='Sample layers',
-#         children=[text_layer, color_layer])
+    return layers
 
-#     return layers
+@get('/sample/handler')
+async def sample_handler() -> str:
+    """An example of dynamically adding a route."""
+
+    return 'This is an example of a handler.'
+
+def register(app: Litestar):
+    """Allow Litestar to register handlers."""
+
+    print('sample register')
+    app.register(sample_handler)
 
 def get_state(request):
     """Get the current state of this image.
 
-    :param rqeuest: The Flask request.
+    Here to demonstrate dynamic layer drawing (apart from the actual image).
+
+    :param request: The request.
     """
 
-    return True
-
-    row = util.query_db('SELECT enabled FROM sample_layers', [], one=True)
-    return row['enabled'] if row else None
+    import uuid
+    return str(uuid.uuid4())
 
 if __name__=='__main__':
     # Create an example tile.

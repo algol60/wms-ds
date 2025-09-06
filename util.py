@@ -7,8 +7,6 @@ from io import BytesIO
 
 import xml.etree.ElementTree as ET
 
-import flask
-
 FONT = ImageFont.truetype('arial.ttf', 12)
 
 NS = 'http://www.opengis.net/wms'
@@ -23,6 +21,16 @@ ET.register_namespace('xlink', NS_XLINK)
 ET.register_namespace('xsi', NS_XSI)
 
 ns = {'wms':NS, 'sld':NS_SLD}
+
+
+from jinja2 import Environment, PackageLoader, select_autoescape
+env = Environment(
+    loader=PackageLoader('app'),
+    autoescape=select_autoescape()
+)
+
+def render(fnam: str, **kwargs):
+    return env.get_template(fnam).render(**kwargs) # {'url': url, 'path': path})
 
 class WmsError(Exception):
     def __init__(self, code, message):
@@ -270,7 +278,6 @@ class Wms:
             for node in hiers:
                 if isinstance(node, LayerNode):
                     if node.name is not None:
-                        print('LL', node)
                         if node.name in self._layers_by_name:
                             registered_names.add(node.name)
                         else:
@@ -287,7 +294,7 @@ class Wms:
 
         layers = self.get_layers()
         for layer_name in layers:
-            print('--', layer_name)
+            print(f'LAYER {layer_name}')
             if layer_name not in registered_names:
                 print(f'Adding {layer_name} to layer hierarchy')
                 layer_node = LayerNode(
@@ -363,7 +370,7 @@ class Wms:
                                 resource_el = ET.SubElement(legend_el, 'OnlineResource')
                                 resource_el.set('xlink:type', 'simple')
                                 p = f'/{path}' if path else ''
-                                resource_el.set('xlink:href', f'http://localhost:5000/legend{p}/{sname}')
+                                resource_el.set('xlink:href', f'{request.base_url}legend{p}/{sname}')
 
         #                 attrib_el = ET.SubElement(layer_el, 'Attribution')
         #                 add_text(attrib_el, 'Title', layer.attribution)
@@ -411,7 +418,7 @@ def build_exception(e):
     # Avoid faffing about with XML namespaces in ET by just using the correct template.
     #
     templ = 'exception_code.xml' if e.code else 'exception.xml'
-    text = flask.render_template(templ, code=e.code, message=escape(e.message))
+    text = render(templ, code=e.code, message=escape(e.message))
 
     return text
 
@@ -443,8 +450,12 @@ def linear_legend(pal, low='Low', high='High'):
     draw = ImageDraw.Draw(img)
     for t in [low, high]:
         # tw, _ = draw.textsize(t, font=FONT)
-        tw = int(draw.textlength(t, font=FONT)+0.5) # TODO use multiline_textbbox for int pixels?
+        # tw = int(draw.textlength(t, font=FONT)+0.5) # TODO use multiline_textbbox for int pixels?
+        left, top, right, bottom = draw.textbbox((0, 0), t, font=FONT, anchor='lt')
+        tw = right - left
         text_width = max(text_width, tw)
+
+        text_height = bottom - top
     del draw
 
     img = Image.new('RGB', (CW+PAD+text_width+PAD,H), (255, 255, 255))
@@ -457,7 +468,7 @@ def linear_legend(pal, low='Low', high='High'):
 
     # s = draw.textsize(low, font=FONT)
     s = int(draw.textlength(low, font=FONT)+0.5)
-    draw.text((CW+PAD,H-s-PAD), low, font=FONT, fill=(0,0,0))
+    draw.text((CW+PAD,H-PAD-text_height), low, font=FONT, fill=(0,0,0))
     draw.text((CW+PAD, 0), high, font=FONT, fill=(0,0,0))
     del draw
 
@@ -498,16 +509,18 @@ def tuple_to_rgb(palette):
 
 ##
 # Database stuff.
+# Can be used for modifying what a layer returns.
+# For example:
+# - add a route handler for '/mylayer/select' to return an HTML form.
+# - add a route handler for submit to update a  table in the database.
+# - the layer changes what it generates depending on the database.
+# or
+# - manually modify the database.
+#
+# This implementation is very primitive.
 ##
 def get_db():
     """Get a database connection. Not thread-safe."""
-
-    # db = getattr(flask.g, '_database', None)
-    # if db is None:
-    #     db = flask.g._database = sqlite3.connect(wms.database)
-    #     db.row_factory = sqlite3.Row
-
-    # return db
 
     if wms.conn is None:
         wms.conn = sqlite3.connect(wms.database)

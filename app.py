@@ -2,31 +2,19 @@ import importlib
 import tomllib
 from pathlib import Path
 from PIL import Image
+import sys
 
-# from flask import Flask, Response, request, render_template, send_file, url_for, g
 from litestar import Litestar, Request, Response, get
 from litestar.response import Template
 
 import util
 from util import wms
 
-from jinja2 import Environment, PackageLoader, select_autoescape
-env = Environment(
-    loader=PackageLoader('app'),
-    autoescape=select_autoescape()
-)
-
 # WMS server.
 #
 # To run locally from a command prompt:
 #
-# Windows:
-# >set FLASK_APP=wms_server
-# >set FLASK_ENV=development
-# >flask run
-#
-# Unix:
-# $ FLASK_APP=wms_server FLASK_ENV=development flask run
+# python -m litestar run --debug --reload
 #
 
 WMS_VERSION = '1.3.0'
@@ -37,38 +25,7 @@ WMS_FORMAT = 'image/png'
 WMS_MODULES = 'WMS_MODULES'
 WMS_DATABASE = 'WMS_DATABASE'
 
-# app = Flask(__name__)
-# # app.config.from_json('config.json', silent=False)
-# app.config.from_file('config.json', json.load)
-
-# wms.database = app.config[WMS_DATABASE]
-
-# http://localhost:5000/?
-# http://localhost:5000/?SERVICE=WMS&REQUEST=GetCapabilities
-
-# # @app.before_first_request
-# # def before_first_request():
-# with app.app_context():
-#     app.logger.info('before_first_request')
-
-#     # Import each module declared in WMS_MODULES.
-#     # Use the filename stem as the module name (just like Python).
-#     #
-#     for fnam in app.config[WMS_MODULES]:
-#         if not fnam.startswith('#'):
-#             app.logger.info(f'import {fnam}')
-#             stem = Path(fnam).stem
-#             spec = importlib.util.spec_from_file_location(stem, fnam)
-#             module = importlib.util.module_from_spec(spec)
-#             spec.loader.exec_module(module)
-
-#             if hasattr(module, 'get_blueprint'):
-#                 print('BLUEPRINT', module)
-#                 app.register_blueprint(module.get_blueprint())
-
-#     print(app.url_map)
-
-def startup():
+def startup(app: Litestar):
     with open('config.toml', 'rb') as f:
         config = tomllib.load(f)
 
@@ -77,7 +34,11 @@ def startup():
         stem = Path(fnam).stem
         spec = importlib.util.spec_from_file_location(stem, fnam)
         module = importlib.util.module_from_spec(spec)
+        sys.modules[stem] = module
         spec.loader.exec_module(module)
+
+        if 'register' in dir(module):
+            module.register(app)
 
 def _get_mandatory(args, arg):
     """Get the argument of a mandatory parameter.
@@ -97,13 +58,9 @@ async def get_root(request: Request) -> Response:
 
     Provides a clickable link to the GetCapabilities endpoint."""
 
-    # args = request.args
-    # if not args:
-    #     # It's probably a browser, so return a human-readable response.
-    #     #
-    #     url = request.url_root[:-1] + url_for('get_wms', path='', SERVICE='WMS', REQUEST='GetCapabilities')
-    print(f'{dict(request.query_params)=}')
     if not request.query_params:
+        # It's probably a browser, so return a human-readable response.
+        #
         url = request.url_for('get_wms', SERVICE='WMS', REQUEST='GetCapabilities')
 
         return Response(f'Send me a WMS request, such as <a href="{url}">{url}</a>', status_code=200, media_type='text/html')
@@ -126,11 +83,6 @@ async def get_wms(request: Request, path: str='') -> Response:
 
 def _get_wms(request, path):
     args = request.query_params
-    # print(f'@@@@ {path=} {dict(args)=}')
-    # if not args:
-    #     url = request.url_for('get_wms', SERVICE='WMS', REQUEST='GetCapabilities')
-
-    #     return Response(f'Send me a WMS request, such as <a href="{url}">{url}</a>', status_code=200, media_type='text/html')
 
     try:
         req = _get_mandatory(args, 'REQUEST')
@@ -182,7 +134,7 @@ def _get_wms(request, path):
                 raise util.WmsError(None, 'Mandatory parameter "SERVICE=WMS" missing')
 
             # The base URL depends on the front end.
-            # For the simple case of running flask locally (as above),
+            # For the simple case of running Flask locally (as above),render
             # request.url_root works fine.
             # To change this, see the Flask "Configuration values" documentation.
             #
@@ -191,6 +143,8 @@ def _get_wms(request, path):
             # the path as a kind of global parameter. For example, "/WMS/day1" and "/WMS/day2"
             # could be used to specify different dates to generate layers from.
             #
+            # This may work differently in Litestar.
+            #
             # url = request.url_root[:-1] + url_for('get_wms', path=path)
             url = request.url_for('get_wms', path=path)
 
@@ -198,8 +152,7 @@ def _get_wms(request, path):
             # (because we don't want to build the entire XML document manually),
             # then generate the <Layer> tree from the imported layers.
             #
-            # cap_xml = render_template('capabilities.xml', url=url, path=path)
-            cap_xml = env.get_template('capabilities.xml').render({'url': url, 'path': path})
+            cap_xml = util.render('capabilities.xml', url=url, path=path)
             cap_xml = wms.build_capabilities(request, cap_xml, path)
 
             return Response(cap_xml, media_type='application/xml', headers={'Content-Disposition': 'inline'})
@@ -214,15 +167,20 @@ def _get_wms(request, path):
 
 # @app.route('/legend/<string:legend>')
 # @app.route('/legend/<path:path>/<string:legend>')
-@get(['/legend/{legend:str}', '/legend/{path:path}/{legend:str}'], sync_to_thread=True)
-def get_legend(path: str, legend: str|None=None) -> Response:
+@get([
+    '/legend/{legend:str}',
+    '/legend/{path:path}/{legend:str}']
+    #, sync_to_thread=True
+)
+async def get_legend(path: str='', legend: str|None=None) -> Response:
     """The legend endpoint."""
 
     # app.logger.info(f'Legend: {legend}')
-    print('GET LEGEND', legend)
+    print(f'GET LEGEND {path=} {legend=}')
+    legend = legend.lstrip('/')
 
     legend_func = wms.get_style(legend)
-    return Response(util.byte_buffer(legend_func(path, legend)).read(), mimetype=WMS_FORMAT)
+    return Response(util.byte_buffer(legend_func(path, legend)).read(), media_type=WMS_FORMAT)
 
 ##
 # Database stuff.

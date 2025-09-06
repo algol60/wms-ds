@@ -1,4 +1,4 @@
+# python==3.13.5 # Ananconda3 2025.06-1
 datashader==0.18.0
-flask==3.1.0
 pillow==11.1.0
-#litestar[standard]==2.17.0
+litestar[standard]==2.17.0

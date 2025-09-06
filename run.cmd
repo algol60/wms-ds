@@ -1,5 +1,3 @@
-set FLASK_APP=wms_server
-set FLASK_ENV=development
-python -m flask run
+cls
 
-@rem FLASK_APP=wms_server FLASK_ENV=development python -m flask run
+python -m litestar run --debug --reload

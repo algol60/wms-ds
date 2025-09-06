@@ -47,7 +47,7 @@ def legend_fire(path, legend):
     miny=ais.miny,
     maxy=ais.maxy,
     priority=2,
-    style=['nyc_fire', 'nyc_bmw']
+    style='nyc_fire'
 )
 def _total_ais(request, w, h, bbox, path, layer_name, style_name):
     west, south, east, north = bbox
@@ -83,7 +83,7 @@ def _category_ais(request, w, h, bbox, path, layer_name, style_name):
     cvs = ds.Canvas(plot_width=w, plot_height=h, x_range=x_range, y_range=y_range)
     agg = cvs.points(ais.top10_df, LON, LAT,  ds.count_cat(TYPE))
     # cmap = bmw if style_name=='nyc_bmw' else fire
-    cmap = bmw
+    cmap = ais.pal # bmw
     img = tf.shade(agg, color_key=ais.ckey, how='eq_hist')
     img = tf.dynspread(img, shape='circle', threshold=0.3, max_px=4)
 
