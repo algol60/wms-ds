@@ -1,6 +1,6 @@
 # WMS-DS: a WMS server for Datashader tiles
 
-WMS-DS is a Web Map Service (WMS) implementation. It is written in [Python](https://www.python.org/), and is implemented as a [Flask](http://flask.pocoo.org/) application. It implements version 1.3.0 of the WMS specification, specified by the [OpenGIS Web Map Service (WMS) Implementation Specification](http://portal.opengeospatial.org/files/?artifact_id=14416).
+WMS-DS is a Web Map Service (WMS) implementation. It is written in [Python](https://www.python.org/), and is implemented as a [Litestar](https://litestar.dev/) application. It implements version 1.3.0 of the WMS specification, specified by the [OpenGIS Web Map Service (WMS) Implementation Specification](http://portal.opengeospatial.org/files/?artifact_id=14416).
 
 ## Introduction
 
@@ -30,39 +30,29 @@ WMS-DS provides a framework to implement a WMS server. The layers and styles tha
 
 Python functions that return map images are marked with decorators that register the functions to the WMS server. The registrations are used to build and provide the XML document returned by the WMS `GetCapabilities` request. Further decorators provide style definitions for layers, and the ability to define the layers in a hierarchy.
 
-Each module can use a Flask blueprint to provide further functionality in the form of REST endpoints or web pages. For example, one of the Datashader examples shows OpenSky data. A Flask blueprint route can provide an endpoint to select the airlines to be shown in the image, and a web page can allow airlines to be selected by a user, then call the REST endpoint to update the session state. See the [Flask blueprints documentation](http://flask.pocoo.org/docs/1.0/blueprints/) for more information.
+Each module can add route handlers (via `register()`) to provide further functionality in the form of REST endpoints or web pages. For example, one of the Datashader examples shows OpenSky data. A  route can provide an endpoint to select the airlines to be shown in the image, and a web page can allow airlines to be selected by a user, then call the REST endpoint to update the session state.
 
 ### The state database
 
 The WMS server provides an sqlite3 database for storing state or other data. The implementation is as described at [Using SQLite 3 with Flask](http://flask.pocoo.org/docs/1.0/patterns/sqlite3/). The `util` module provides `get_db()` (using the `sqlite3.Row` row factory) and `query_db` functions.
 
-The sqlite3 database file must be specified in Flask's `config.json` config file, using the "`WMS_DATABASE`" key. Any schemas used by a module must be created in the database before use.
+The sqlite3 database file must be specified in Flask's `config.toml` config file, using the "`database`" key. Any schemas used by a module must be created in the database before use.
 
 For a "few" users (for some definition of "few") just using the database for storing state (such as variables defining how an image is created), it is expected that an sqlite3 database is sufficient.
 
 ### Dependencies
 
-WMS-DS requires Anaconda3 Python (for Flask and PIL). Individual modules nay have further requirements (for example, [Datashader](http://datashader.org/)).
+WMS-DS requires Litestar and Pillow. Individual modules nay have further requirements (for example, [Datashader](http://datashader.org/)).
 
 ## Running WMS-DS
 
-Since WMS-DS is a Flask application, it is started according to the Flask applications.
-
-On Windows:
-
-```cmd
-set FLASK_APP=wms_server
-set FLASK_ENV=development
-python -m flask run
-```
-
-On Linux:
+Since WMS-DS is a Litestar application, it is started according to the Litestar documentation.
 
 ```bash
-FLASK_APP=wms_server FLASK_ENV=development python -m flask run
+python -m litestar run --debug --reload
 ```
 
-After starting, the WMS is available at `http://localhost:5000/?`.
+After starting, the WMS is available at `http://localhost:8000/`.
 
 ## Layer functions
 
@@ -147,10 +137,6 @@ Blueprints are created in a module as per the Flask blueprint documentation. A b
 
 ## Initialisation
 
-Python modules to be included in the WMS server are specified in the `config.json` file as members of a list under the key "WMS_MODULES". Modules are specified as filenames.
+Python modules to be included in the WMS server are specified in the `config.toml` file as members of a list under the key "WMS_MODULES". Modules are specified as filenames.
 
-Modules can be commented out by inserting a '#' at the beginning of a filename string.
-
-Modules are loaded using Flask's `app.before_first_request()` functionality. This means that module code is not run when the Flask app is run, but when the first client request is received. This is done because Flask is multi-threaded; loading modules at start time means that they couldbe loaded more than once.
-
-Depending on what modules do when they run (for example, loading data), the first request can wait some time to get a response. To avoid this, immediately after starting Flask, use a web browser to manually browse to the root URL (on a standalone server running on the local system:) `http://localhost:5000/?`).
+Modules can be commented out by inserting a '#' at the beginning of a filename stringstandard TOML comments '#'.
