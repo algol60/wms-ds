@@ -1,7 +1,6 @@
 from dataclasses import dataclass
 from typing import List, Optional, Callable
 from PIL import Image, ImageColor, ImageDraw, ImageFont
-import sqlite3
 
 from io import BytesIO
 
@@ -506,40 +505,3 @@ def tuple_to_rgb(palette):
     """
 
     return [f'#{rgb[0]:02x}{rgb[1]:02x}{rgb[2]:02x}' for rgb in palette]
-
-##
-# Database stuff.
-# Can be used for modifying what a layer returns.
-# For example:
-# - add a route handler for '/mylayer/select' to return an HTML form.
-# - add a route handler for submit to update a  table in the database.
-# - the layer changes what it generates depending on the database.
-# or
-# - manually modify the database.
-#
-# This implementation is very primitive.
-##
-def get_db():
-    """Get a database connection. Not thread-safe."""
-
-    if wms.conn is None:
-        wms.conn = sqlite3.connect(wms.database)
-        wms.conn.row_factory = sqlite3.Row
-
-    return wms.conn
-
-
-def query_db(query, args=(), one=False):
-    """Query the database.
-
-    :param query: The SQL query (with '?' placeholders).
-    :param args: The values to be substituted for the placeholders.
-    :param one: If only one row is expected, set this to True to get the first row.
-        If this is False, all rows are returned as a list.
-    """
-
-    cur = get_db().execute(query, args)
-    rv = cur.fetchall()
-    cur.close()
-
-    return (rv[0] if rv else None) if one else rv

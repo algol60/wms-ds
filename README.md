@@ -2,6 +2,53 @@
 
 WMS-DS is a Web Map Service (WMS) implementation. It is written in [Python](https://www.python.org/), and is implemented as a [Litestar](https://litestar.dev/) application. It implements version 1.3.0 of the WMS specification, specified by the [OpenGIS Web Map Service (WMS) Implementation Specification](http://portal.opengeospatial.org/files/?artifact_id=14416).
 
+## Installation
+
+- Create a venv.
+- `pip install -r requirements.txt`
+
+## Start the WMS server
+
+- Ensure that config.toml only has image_sample uncommented.
+- `python -m litestar run --debug --reload`
+
+After starting, the WMS server is available at `http://localhost:8000/`.
+
+The sample image contains two layers, edge_layer and ellipse_layer. The ellipse layer has a categorical style. The edge layer has two linear styles. The edge layer also displays a text box showing properties of the current tile.
+
+### QGIS:
+
+- Layer → Add layer → Add WMS/WMTS Layer ...
+- Select New. Name "anything", URL "http://localhost:8000", OK.
+- To select an edge layer style click Connect, select a style, click Add. If you do not select a linear style for the edge layer, QGIS will not display a legend.
+- Add the layers to the map.
+
+### ArcGIS Pro
+
+- Insert → Connections → Server → New WMS Server
+- Server URL "http://localhost:8000", OK.
+- Add the layers to the map.
+
+To change the style:
+- Choose a WMS sublayer in the Contents pane.
+- On the WMS Sublayer tab, in the Drawing group, click the Symbology drop-down menu Symbology. In the Symbology gallery, click the style you want to show.
+- The Symbology pane appears, displaying the current style information.
+- Optionally, change the legend height, legend width, and the URL defining the style.
+
+Note: if making changes to the WMS server styles, you must remove the server from the ArcGIS Pro catalog, restart ArcGIS Pro, and add the WMS server again.
+
+## AIS example
+
+To run the AIS example, acquire some data containing longitude, latitude, and category data. Save the data in a parquet file with column names `LON`, `LAT`, `TYPE`. In `image_ais.py`, modify the `AIS` class to use the correct file path.
+
+In `requirements.txt`, comment out `image_sample`. Uncomment `image_ais`.
+
+Start the server and add the new layers to QGIS / ArcGIS Pro.
+
+QGIS may require the layer to be refreshed.
+
+ArcGIS Pro may require the previous layers and server to be removed, then restart ArcGIS Pro before adding the new layers. (ArcGIS Pro seems to aggressively over-cache things.)
+
 ## Introduction
 
 (This section reproduces the introduction from the WMS Specification v1.3.0.)
@@ -31,28 +78,6 @@ WMS-DS provides a framework to implement a WMS server. The layers and styles tha
 Python functions that return map images are marked with decorators that register the functions to the WMS server. The registrations are used to build and provide the XML document returned by the WMS `GetCapabilities` request. Further decorators provide style definitions for layers, and the ability to define the layers in a hierarchy.
 
 Each module can add route handlers (via `register()`) to provide further functionality in the form of REST endpoints or web pages. For example, one of the Datashader examples shows OpenSky data. A  route can provide an endpoint to select the airlines to be shown in the image, and a web page can allow airlines to be selected by a user, then call the REST endpoint to update the session state.
-
-### The state database
-
-The WMS server provides an sqlite3 database for storing state or other data. The implementation is as described at [Using SQLite 3 with Flask](http://flask.pocoo.org/docs/1.0/patterns/sqlite3/). The `util` module provides `get_db()` (using the `sqlite3.Row` row factory) and `query_db` functions.
-
-The sqlite3 database file must be specified in Flask's `config.toml` config file, using the "`database`" key. Any schemas used by a module must be created in the database before use.
-
-For a "few" users (for some definition of "few") just using the database for storing state (such as variables defining how an image is created), it is expected that an sqlite3 database is sufficient.
-
-### Dependencies
-
-WMS-DS requires Litestar and Pillow. Individual modules nay have further requirements (for example, [Datashader](http://datashader.org/)).
-
-## Running WMS-DS
-
-Since WMS-DS is a Litestar application, it is started according to the Litestar documentation.
-
-```bash
-python -m litestar run --debug --reload
-```
-
-After starting, the WMS is available at `http://localhost:8000/`.
 
 ## Layer functions
 
@@ -130,10 +155,6 @@ When a layer is requested by a WMS client, a style can be optionally provided. T
 A module can optionally define a layer provider using the `wms.layer_provider()` decorator. A layer provider function uses the `LayerNode` class to provide a hierarchical organisation of registered layers.
 
 If no layer provider is registered, or a layer provider is registered but not all layers are specified, the remaining layers are organised in a list.
-
-## Blueprints
-
-Blueprints are created in a module as per the Flask blueprint documentation. A blueprint is registered to Flask by providing a `get_blueprint()` function in the module. If present, the WMS server calls this function when the module is loaded to get the blueprint, and registers the blueprint with Flask. See the `image_sample.py` module for an example.
 
 ## Initialisation
 

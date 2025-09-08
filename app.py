@@ -1,11 +1,11 @@
 import importlib
 import tomllib
 from pathlib import Path
-from PIL import Image
+# from PIL import Image
 import sys
 
 from litestar import Litestar, Request, Response, get
-from litestar.response import Template
+# from litestar.response import Template
 
 import util
 from util import wms
@@ -73,8 +73,6 @@ async def get_root(request: Request) -> Response:
 async def favicon() -> bytes:
     return b''
 
-# @app.route('/WMS/')
-# @app.route('/WMS/<path:path>')
 @get(['/WMS/', '/WMS/{path:path}/'], name='get_wms')
 async def get_wms(request: Request, path: str='') -> Response:
     """The endpoint for WMS requests."""
@@ -119,7 +117,7 @@ def _get_wms(request, path):
                 sns = style_names.split(',')
                 img = wms.multi_layer(request, width, height, bbox, path, lns, sns)
 
-                return Response(util.byte_buffer(img), mimetype=WMS_FORMAT)
+                return Response(util.byte_buffer(img), media_type=WMS_FORMAT)
             else:
                 layer_def = wms.get_layer(layer_names)
                 if util.intersects(bbox, layer_def):
@@ -165,8 +163,6 @@ def _get_wms(request, path):
 
         return Response(xml, media_type='application/xml', headers={'Content-Disposition': 'inline'})
 
-# @app.route('/legend/<string:legend>')
-# @app.route('/legend/<path:path>/<string:legend>')
 @get([
     '/legend/{legend:str}',
     '/legend/{path:path}/{legend:str}']
@@ -182,19 +178,8 @@ async def get_legend(path: str='', legend: str|None=None) -> Response:
     legend_func = wms.get_style(legend)
     return Response(util.byte_buffer(legend_func(path, legend)).read(), media_type=WMS_FORMAT)
 
-##
-# Database stuff.
-##
-
-# @app.teardown_appcontext
 def shutdown():
-    # print('TEARDOWN')
-    # db = getattr(g, '_database', None)
-    # if db is not None:
-    #     db.close()
-
-    if wms.conn is not None:
-        wms.conn.close()
+    print('Shutting down ...')
 
 app = Litestar(
     on_startup=[startup],

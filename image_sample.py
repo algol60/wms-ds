@@ -1,7 +1,7 @@
 from werkzeug.utils import safe_join
 from PIL import Image, ImageDraw, ImageFont
 import random
-from datashader.colors import inferno, viridis
+import colorcet
 
 import util
 from util import wms
@@ -31,18 +31,18 @@ def _add_text(w, h, bbox, draw, text, fill=(0, 0, 0)):
 @wms.style('linear')
 def legend_lin(path, legend):
     print(f'**LEGEND {path} {legend}')
-    return util.linear_legend(util.tuple_to_rgb(viridis)[::2], 'Bottom', 'Top')
+    return util.linear_legend(colorcet.blues[::2], 'Bottom', 'Top')
 
 @wms.style('linear2')
 def legend_inferno(path, legend):
     print(f'**LEGEND {path} {legend}')
-    return util.linear_legend(util.tuple_to_rgb(inferno)[::2], 'Cold', 'Hot')
+    return util.linear_legend(colorcet.fire[::2], 'Cold', 'Hot')
 
 @wms.style('categorical')
 def legend_cat(path, legend):
     print(f'**LEGEND {path} {legend}')
     cats = ['one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten_longer']
-    pal = [(2, 62, 255), (255, 124, 0), (26, 201, 56), (232, 0, 11), (139, 43, 226), (159, 72, 0), (241, 76, 193), (163, 163, 163), (255, 196, 0), (0, 215, 255)]
+    pal = colorcet.b_glasbey_hv[:len(cats)]
 
     return util.categorical_legend(cats, pal)
 
